@@ -14,6 +14,10 @@ int csPin = 0;
 #include <WiFiClient.h>
 #include <HTTPClient.h>
 #include <Ticker.h>
+#include <TimeLib.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
 WebServer server(80);
 int csPin = 5;
 const int relayPin = 13;
@@ -22,6 +26,10 @@ const int relayPin = 13;
 #include <SD.h>
 #include <RTClib.h>
 #include <Timer.h>
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
 // ESP32 Access Point credentials
 const char *ap_ssid = "weather_station";    // SSID for the AP
@@ -53,6 +61,10 @@ void handleRoot();
 void handleSaveSettings();
 void handleDownload();
 void handleDelete();
+String getFormattedTimestamp();
+unsigned long getTime();
+void setInternalClock();
+String getFormattedTimestamp();
 
 int watchdogTimer = 11;
 int delayMill = 3000;
@@ -71,10 +83,37 @@ String payload;
 
 bool checkSend = false;
 
+// Variable to save current epoch time
+unsigned long epochTime;
+
+// Function that gets current epoch time
+unsigned long getTime()
+{
+  timeClient.update();
+  unsigned long now = timeClient.getEpochTime();
+  return now;
+}
+
+// Function to set the ESP32's internal clock
+void setInternalClock()
+{
+  epochTime = getTime();
+  setTime(epochTime);
+}
+
+String getFormattedTimestamp()
+{
+  char buffer[25];
+  time_t t = now(); // Get current time
+  sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", year(t), month(t), day(t), hour(t), minute(t), second(t));
+  return String(buffer);
+}
+
 void addToSerialBuffer(const String &message)
 {
-  Serial.println(message); // Still print to actual serial for debugging
-  serialBuffer[serialBufferIndex] = message;
+  String timestampedMessage = getFormattedTimestamp() + " - " + message;
+  Serial.println(timestampedMessage); // Print to actual serial for debugging
+  serialBuffer[serialBufferIndex] = timestampedMessage;
   serialBufferIndex = (serialBufferIndex + 1) % SERIAL_BUFFER_SIZE;
 }
 
@@ -87,6 +126,7 @@ struct Settings
   IPAddress gateway;
   IPAddress subnet;
   IPAddress dnsServer;
+  String postUrl; // New field for the post URL
 };
 
 Settings settings;
@@ -123,6 +163,7 @@ void loadSettings()
         settings.gateway.fromString(doc["gateway"].as<String>());
         settings.subnet.fromString(doc["subnet"].as<String>());
         settings.dnsServer.fromString(doc["dnsServer"].as<String>());
+        settings.postUrl = doc["postUrl"].as<String>(); // Load the new postUrl
       }
       file.close();
     }
@@ -137,6 +178,7 @@ void loadSettings()
     settings.gateway.fromString("10.9.116.1");
     settings.subnet.fromString("255.255.255.0");
     settings.dnsServer.fromString("192.168.1.22");
+    settings.postUrl = "http://srs-ssms.com/iot/post-data-aws.php"; // Default URL
     saveSettings();
   }
 }
@@ -154,6 +196,7 @@ void saveSettings()
     doc["gateway"] = settings.gateway.toString();
     doc["subnet"] = settings.subnet.toString();
     doc["dnsServer"] = settings.dnsServer.toString();
+    doc["postUrl"] = settings.postUrl; // Save the new postUrl
     if (serializeJson(doc, file) == 0)
     {
       addToSerialBuffer("Failed to write settings file");
@@ -178,6 +221,7 @@ void handleRoot()
   html += "Gateway: <input type='text' name='gateway' value='" + settings.gateway.toString() + "'><br>";
   html += "Subnet: <input type='text' name='subnet' value='" + settings.subnet.toString() + "'><br>";
   html += "DNS Server: <input type='text' name='dnsServer' value='" + settings.dnsServer.toString() + "'><br>";
+  html += "Post URL: <input type='text' name='postUrl' value='" + settings.postUrl + "'><br>"; // New field for postUrl
   html += "<input type='submit' value='Save'>";
   html += "</form>";
 
@@ -251,6 +295,7 @@ void handleSaveSettings()
   settings.gateway.fromString(server.arg("gateway"));
   settings.subnet.fromString(server.arg("subnet"));
   settings.dnsServer.fromString(server.arg("dnsServer"));
+  settings.postUrl = server.arg("postUrl"); // Save the new postUrl
   saveSettings();
   server.sendHeader("Location", "/");
   server.send(303);
@@ -531,7 +576,7 @@ void sendData()
       String data = constructJsonData(values, 13);
 
       addToSerialBuffer("Attempting to send data: " + data);
-      http.begin(client, "http://srs-ssms.com/iot/post-data-aws.php");
+      http.begin(client, settings.postUrl); // Use the new postUrl from settings
       http.addHeader("Content-Type", "application/json");
       int httpCode = http.POST(data);
 
@@ -579,16 +624,16 @@ void connectWiFi()
     delay(1000);
     Serial.print(".");
   }
-  Serial.print("Connected to ssid ");
-  addToSerialBuffer(settings.ssid);
-  Serial.print("Use this URL to connect: ");
-  Serial.print("http://");
-  Serial.print(WiFi.localIP());
-  addToSerialBuffer("/");
-  Serial.print("Gateway: ");
-  addToSerialBuffer(String(WiFi.gatewayIP()));
-  Serial.print("Subnet mask: ");
-  addToSerialBuffer(String(WiFi.subnetMask()));
+  addToSerialBuffer("Connected to ssid " + String(settings.ssid));
+  addToSerialBuffer("Use this URL to connect: http://" + WiFi.localIP().toString() + " or " + ap_local_ip);
+  addToSerialBuffer("Gateway: " + WiFi.gatewayIP().toString());
+  addToSerialBuffer("Subnet mask: " + WiFi.subnetMask().toString());
+  delay(1000);
+  // Initialize and sync NTP Client
+  timeClient.begin();
+  timeClient.setTimeOffset(25200); // Set time zone offset to GMT+7 (25200 seconds)
+  setInternalClock();
+  addToSerialBuffer("Time synchronized with NTP server");
 }
 
 void deleteTopLine()
@@ -639,6 +684,13 @@ void loop()
   server.handleClient();
   sendTimer.update();
   watchdogMin = 0;
+
+  // Periodically sync time
+  if (millis() % 600000 == 0)
+  { // Sync every hour
+    setInternalClock();
+    addToSerialBuffer("Time re-synchronized with NTP server");
+  }
 }
 
 void appendFile(fs::FS &fs, const char *path, String message)
