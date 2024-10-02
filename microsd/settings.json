@@ -6,5 +6,5 @@
     "gateway": "10.9.116.1",
     "subnet": "255.255.255.0",
     "dnsServer": "192.168.1.22",
-    "postUrl": "http://srs-ssms.com/iot/post-data-aws.php"
+    "postUrl": "http://srs-ssms.com/iot/post-aws-to-api.php"
   }

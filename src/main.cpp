@@ -178,7 +178,7 @@ void loadSettings()
     settings.gateway.fromString("10.9.116.1");
     settings.subnet.fromString("255.255.255.0");
     settings.dnsServer.fromString("192.168.1.22");
-    settings.postUrl = "http://srs-ssms.com/iot/post-data-aws.php"; // Default URL
+    settings.postUrl = "http://srs-ssms.com/iot/post-aws-to-api.php"; // Default URL
     saveSettings();
   }
 }
@@ -400,6 +400,8 @@ void handlePost()
 
     String data = new_date_string + "," + windspeedkmh + "," + winddir + "," + rainratein + "," + temp_in + "," + temp_out + "," + humidityin + "," + humidity + "," + uv + "," + windgustmph + "," + baromrelin + "," + baromabsin + "," + solarradiation;
 
+    addToSerialBuffer("SAVED DATA: "+ data);
+
     if (data != "")
     {
       checkSend = true;
@@ -409,15 +411,15 @@ void handlePost()
 
     server.send(200, "text/plain", "Data saved to SD card.");
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
+    delay(200);
     digitalWrite(LED_BUILTIN, LOW);
-    delay(1000);
+    delay(200);
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
+    delay(200);
     digitalWrite(LED_BUILTIN, LOW);
-    delay(1000);
+    delay(200);
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
+    delay(200);
     digitalWrite(LED_BUILTIN, LOW);
   }
 }
