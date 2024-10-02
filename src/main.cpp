@@ -33,7 +33,7 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
 // ESP32 Access Point credentials
 const char *ap_ssid = "weather_station";    // SSID for the AP
-const char *ap_password = "sulungresearch"; // Password for the AP
+const char *ap_password = "research"; // Password for the AP
 
 // Static IP settings for the ESP32 AP
 IPAddress ap_local_ip(192, 168, 8, 1);
