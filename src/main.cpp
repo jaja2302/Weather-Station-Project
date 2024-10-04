@@ -65,6 +65,7 @@ String getFormattedTimestamp();
 unsigned long getTime();
 void setInternalClock();
 String getFormattedTimestamp();
+void handleRestart();
 
 int watchdogTimer = 11;
 int delayMill = 3000;
@@ -240,13 +241,12 @@ void handleRoot() {
   html += "tr:nth-child(even) { background-color: #f2f2f2; }";
   html += ".download { color: green; font-weight: bold; text-transform: uppercase; }";
   html += ".delete { color: red; font-weight: bold; text-transform: uppercase; }";
+  html += ".restart { background-color: #ff9800; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; border: none; border-radius: 4px; }";
   html += "</style>";
-
   html += "</head><body>";
   html += "<h1>Weather Station Settings</h1>";
-    html += "<table>";
   html += "<form action='/save' method='POST'>";
-
+  html += "<table>";
   html += "<tr><td>SSID:</td><td><input type='text' name='ssid' value='" + settings.ssid + "'></td></tr>";
   html += "<tr><td>Password:</td><td><input type='text' name='password' value='" + settings.password + "'></td></tr>";
   html += "<tr><td>ID:</td><td><input type='number' name='id' value='" + String(settings.id) + "'></td></tr>";
@@ -257,9 +257,12 @@ void handleRoot() {
   html += "<tr><td>DNS Server:</td><td><input type='text' name='dnsServer' value='" + settings.dnsServer.toString() + "'></td></tr>";
   html += "<tr><td>Post URL:</td><td><input type='text' name='postUrl' value='" + settings.postUrl + "'></td></tr>";
   html += "<tr><td colspan='2'><input type='submit' value='Save'></td></tr>";
-
+  html += "</table>";
   html += "</form>";
-    html += "</table>";
+
+  // Add restart button
+  html += "<h2>ESP32 Control</h2>";
+  html += "<a href='/restart' class='restart' onclick='return confirm(\"Are you sure you want to restart the ESP32?\")'>RESTART ESP32</a>";
 
   // Add SD card file listing with download and delete options
   html += "<h2>SD Card Files</h2>";
@@ -341,7 +344,7 @@ void handleSaveSettings() {
   if (networkChanged || settings.useStaticIP != server.hasArg("useStaticIP")) {
     server.send(200, "text/html", "<html><body><h1>Settings Saved</h1><p>Reconnecting to network...</p><script>setTimeout(function(){ window.location.href = '/'; }, 10000);</script></body></html>");
     delay(1000);  // Give the server time to send the response
-    connectWiFi();  // Reconnect to the new network
+    ESP.restart();
   } else {
     server.sendHeader("Location", "/");
     server.send(303);
@@ -503,8 +506,9 @@ void setup()
   server.on("/save", HTTP_POST, handleSaveSettings);
   server.on("/post", handlePost);
   server.on("/serial", handleSerial);
-  server.on("/download", handleDownload); // Add this line
-  server.on("/delete", handleDelete);     // Add this line
+  server.on("/download", handleDownload);
+  server.on("/delete", handleDelete);
+  server.on("/restart", handleRestart);  // Add this line
 
   server.begin();
   addToSerialBuffer("Server started");
@@ -516,8 +520,6 @@ void setup()
 }
 
 #include <ArduinoJson.h>
-
-// ... (previous code remains the same)
 
 String constructJsonData(const String values[], int size)
 {
@@ -679,6 +681,7 @@ void connectWiFi() {
     Serial.print(".");
     attempts++;
   }
+  
 
   if (WiFi.status() != WL_CONNECTED) {
     if (settings.useStaticIP) {
@@ -711,6 +714,13 @@ void connectWiFi() {
   setInternalClock();
   addToSerialBuffer("Time synchronized with NTP server");
 }
+
+void handleRestart() {
+  server.send(200, "text/html", "<html><body><h1>Restarting ESP32...</h1><script>setTimeout(function(){ window.location.href = '/'; }, 10000);</script></body></html>");
+  delay(1000);  // Give the server time to send the response
+  ESP.restart();
+} 
+
 
 void deleteTopLine()
 {
