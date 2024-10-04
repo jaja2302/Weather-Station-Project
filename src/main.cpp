@@ -117,16 +117,16 @@ void addToSerialBuffer(const String &message)
   serialBufferIndex = (serialBufferIndex + 1) % SERIAL_BUFFER_SIZE;
 }
 
-struct Settings
-{
+struct Settings {
   String ssid;
   String password;
   int id;
+  bool useStaticIP;  // New field to determine if static IP should be used
   IPAddress staticIP;
   IPAddress gateway;
   IPAddress subnet;
   IPAddress dnsServer;
-  String postUrl; // New field for the post URL
+  String postUrl;
 };
 
 Settings settings;
@@ -141,100 +141,136 @@ void resetWatchdog()
   }
 }
 
-void loadSettings()
-{
-  if (SD.exists("/settings.json"))
-  {
+void loadSettings() {
+  addToSerialBuffer("Starting to load settings...");
+  if (SD.exists("/settings.json")) {
+    addToSerialBuffer("Settings file found. Attempting to read...");
     File file = SD.open("/settings.json", FILE_READ);
-    if (file)
-    {
+    if (file) {
+      addToSerialBuffer("Settings file opened successfully.");
       DynamicJsonDocument doc(1024);
       DeserializationError error = deserializeJson(doc, file);
-      if (error)
-      {
-        addToSerialBuffer("Failed to read settings file");
-      }
-      else
-      {
+      if (error) {
+        addToSerialBuffer("Failed to read settings file: " + String(error.c_str()));
+      } else {
+        addToSerialBuffer("Settings file parsed successfully. Loading values...");
         settings.ssid = doc["ssid"].as<String>();
         settings.password = doc["password"].as<String>();
         settings.id = doc["id"].as<int>();
+        settings.useStaticIP = doc["useStaticIP"] | true;  // Default to true if not present
         settings.staticIP.fromString(doc["staticIP"].as<String>());
         settings.gateway.fromString(doc["gateway"].as<String>());
         settings.subnet.fromString(doc["subnet"].as<String>());
         settings.dnsServer.fromString(doc["dnsServer"].as<String>());
-        settings.postUrl = doc["postUrl"].as<String>(); // Load the new postUrl
+        settings.postUrl = doc["postUrl"].as<String>();
+        
+        addToSerialBuffer("All settings loaded:");
+        addToSerialBuffer("SSID: " + settings.ssid);
+        addToSerialBuffer("Password: " + settings.password);
+        addToSerialBuffer("ID: " + String(settings.id));
+        addToSerialBuffer("Use Static IP: " + String(settings.useStaticIP ? "Yes" : "No"));
+        addToSerialBuffer("Static IP: " + settings.staticIP.toString());
+        addToSerialBuffer("Gateway: " + settings.gateway.toString());
+        addToSerialBuffer("Subnet: " + settings.subnet.toString());
+        addToSerialBuffer("DNS Server: " + settings.dnsServer.toString());
+        addToSerialBuffer("Post URL: " + settings.postUrl);
       }
       file.close();
+      addToSerialBuffer("Settings file closed.");
+    } else {
+      addToSerialBuffer("Failed to open settings file.");
     }
-  }
-  else
-  {
+  } else {
+    addToSerialBuffer("Settings file not found. Loading default settings...");
     // Default settings
     settings.ssid = "SRS";
     settings.password = "SRS@2023";
     settings.id = 1;
+    settings.useStaticIP = true;  // Default to static IP
     settings.staticIP.fromString("10.9.116.174");
     settings.gateway.fromString("10.9.116.1");
     settings.subnet.fromString("255.255.255.0");
     settings.dnsServer.fromString("192.168.1.22");
-    settings.postUrl = "http://srs-ssms.com/iot/post-aws-to-api.php"; // Default URL
+    settings.postUrl = "http://srs-ssms.com/iot/post-aws-to-api.php";
+    
+    addToSerialBuffer("Default settings loaded. Printing all settings:");
+    addToSerialBuffer("SSID: " + settings.ssid);
+    addToSerialBuffer("Password: " + settings.password);
+    addToSerialBuffer("ID: " + String(settings.id));
+    addToSerialBuffer("Use Static IP: " + String(settings.useStaticIP ? "Yes" : "No"));
+    addToSerialBuffer("Static IP: " + settings.staticIP.toString());
+    addToSerialBuffer("Gateway: " + settings.gateway.toString());
+    addToSerialBuffer("Subnet: " + settings.subnet.toString());
+    addToSerialBuffer("DNS Server: " + settings.dnsServer.toString());
+    addToSerialBuffer("Post URL: " + settings.postUrl);
+    
     saveSettings();
+    addToSerialBuffer("Default settings saved to file.");
   }
+  addToSerialBuffer("Settings loading process completed.");
 }
 
-void saveSettings()
-{
+void saveSettings() {
   File file = SD.open("/settings.json", FILE_WRITE);
-  if (file)
-  {
+  if (file) {
     DynamicJsonDocument doc(1024);
     doc["ssid"] = settings.ssid;
     doc["password"] = settings.password;
     doc["id"] = settings.id;
+    doc["useStaticIP"] = settings.useStaticIP;
     doc["staticIP"] = settings.staticIP.toString();
     doc["gateway"] = settings.gateway.toString();
     doc["subnet"] = settings.subnet.toString();
     doc["dnsServer"] = settings.dnsServer.toString();
-    doc["postUrl"] = settings.postUrl; // Save the new postUrl
-    if (serializeJson(doc, file) == 0)
-    {
+    doc["postUrl"] = settings.postUrl;
+    if (serializeJson(doc, file) == 0) {
       addToSerialBuffer("Failed to write settings file");
     }
     file.close();
-  }
-  else
-  {
+  } else {
     addToSerialBuffer("Failed to open settings file for writing");
   }
 }
 
-void handleRoot()
-{
-  String html = "<html><body>";
+void handleRoot() {
+  String html = "<html><head>";
+  html += "<style>";
+  html += "table { border-collapse: collapse; width: 100%; }";
+  html += "th, td { text-align: left; padding: 8px; }";
+  html += "tr:nth-child(even) { background-color: #f2f2f2; }";
+  html += ".download { color: green; font-weight: bold; text-transform: uppercase; }";
+  html += ".delete { color: red; font-weight: bold; text-transform: uppercase; }";
+  html += "</style>";
+
+  html += "</head><body>";
   html += "<h1>Weather Station Settings</h1>";
+    html += "<table>";
   html += "<form action='/save' method='POST'>";
-  html += "SSID: <input type='text' name='ssid' value='" + settings.ssid + "'><br>";
-  html += "Password: <input type='password' name='password' value='" + settings.password + "'><br>";
-  html += "ID: <input type='number' name='id' value='" + String(settings.id) + "'><br>";
-  html += "Static IP: <input type='text' name='staticIP' value='" + settings.staticIP.toString() + "'><br>";
-  html += "Gateway: <input type='text' name='gateway' value='" + settings.gateway.toString() + "'><br>";
-  html += "Subnet: <input type='text' name='subnet' value='" + settings.subnet.toString() + "'><br>";
-  html += "DNS Server: <input type='text' name='dnsServer' value='" + settings.dnsServer.toString() + "'><br>";
-  html += "Post URL: <input type='text' name='postUrl' value='" + settings.postUrl + "'><br>"; // New field for postUrl
-  html += "<input type='submit' value='Save'>";
+
+  html += "<tr><td>SSID:</td><td><input type='text' name='ssid' value='" + settings.ssid + "'></td></tr>";
+  html += "<tr><td>Password:</td><td><input type='text' name='password' value='" + settings.password + "'></td></tr>";
+  html += "<tr><td>ID:</td><td><input type='number' name='id' value='" + String(settings.id) + "'></td></tr>";
+  html += "<tr><td>Use Static IP:</td><td><input type='checkbox' name='useStaticIP' " + String(settings.useStaticIP ? "checked" : "") + "></td></tr>";
+  html += "<tr><td>Static IP:</td><td><input type='text' name='staticIP' value='" + settings.staticIP.toString() + "'></td></tr>";
+  html += "<tr><td>Gateway:</td><td><input type='text' name='gateway' value='" + settings.gateway.toString() + "'></td></tr>";
+  html += "<tr><td>Subnet:</td><td><input type='text' name='subnet' value='" + settings.subnet.toString() + "'></td></tr>";
+  html += "<tr><td>DNS Server:</td><td><input type='text' name='dnsServer' value='" + settings.dnsServer.toString() + "'></td></tr>";
+  html += "<tr><td>Post URL:</td><td><input type='text' name='postUrl' value='" + settings.postUrl + "'></td></tr>";
+  html += "<tr><td colspan='2'><input type='submit' value='Save'></td></tr>";
+
   html += "</form>";
+    html += "</table>";
 
   // Add SD card file listing with download and delete options
   html += "<h2>SD Card Files</h2>";
-  html += "<table border='1'><tr><th>File Name</th><th>Actions</th></tr>";
+  html += "<table>";
+  html += "<tr><th>File Name</th><th>Actions</th></tr>";
   File root = SD.open("/");
-  while (File file = root.openNextFile())
-  {
+  while (File file = root.openNextFile()) {
     String fileName = String(file.name());
     html += "<tr><td>" + fileName + "</td><td>";
-    html += "<a href='/download?file=" + fileName + "'>Download</a> | ";
-    html += "<a href='/delete?file=" + fileName + "' onclick='return confirm(\"Are you sure you want to delete this file?\")'>Delete</a>";
+    html += "<a href='/download?file=" + fileName + "' class='download'>DOWNLOAD</a> | ";
+    html += "<a href='/delete?file=" + fileName + "' class='delete' onclick='return confirm(\"Are you sure you want to delete this file?\")'>DELETE</a>";
     html += "</td></tr>";
     file.close();
   }
@@ -286,19 +322,30 @@ void handleDownload()
   server.send(404, "text/plain", "File not found");
 }
 
-void handleSaveSettings()
-{
-  settings.ssid = server.arg("ssid");
-  settings.password = server.arg("password");
+void handleSaveSettings() {
+  String newSSID = server.arg("ssid");
+  String newPassword = server.arg("password");
+  bool networkChanged = (newSSID != settings.ssid) || (newPassword != settings.password);
+
+  settings.ssid = newSSID;
+  settings.password = newPassword;
   settings.id = server.arg("id").toInt();
+  settings.useStaticIP = server.hasArg("useStaticIP");
   settings.staticIP.fromString(server.arg("staticIP"));
   settings.gateway.fromString(server.arg("gateway"));
   settings.subnet.fromString(server.arg("subnet"));
   settings.dnsServer.fromString(server.arg("dnsServer"));
-  settings.postUrl = server.arg("postUrl"); // Save the new postUrl
+  settings.postUrl = server.arg("postUrl");
   saveSettings();
-  server.sendHeader("Location", "/");
-  server.send(303);
+
+  if (networkChanged || settings.useStaticIP != server.hasArg("useStaticIP")) {
+    server.send(200, "text/html", "<html><body><h1>Settings Saved</h1><p>Reconnecting to network...</p><script>setTimeout(function(){ window.location.href = '/'; }, 10000);</script></body></html>");
+    delay(1000);  // Give the server time to send the response
+    connectWiFi();  // Reconnect to the new network
+  } else {
+    server.sendHeader("Location", "/");
+    server.send(303);
+  }
 }
 
 void handleSerial()
@@ -615,22 +662,49 @@ void sendData()
   addToSerialBuffer(String(testLoop));
 }
 
-void connectWiFi()
-{
-  WiFi.config(settings.staticIP, settings.gateway, settings.subnet, settings.dnsServer);
+void connectWiFi() {
+  if (settings.useStaticIP) {
+    if (!WiFi.config(settings.staticIP, settings.gateway, settings.subnet, settings.dnsServer)) {
+      addToSerialBuffer("Failed to configure static IP. Falling back to dynamic IP.");
+      settings.useStaticIP = false;
+    }
+  }
+
   WiFi.begin(settings.ssid.c_str(), settings.password.c_str());
-  Serial.print("Connecting to ");
-  addToSerialBuffer(settings.ssid);
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  addToSerialBuffer("Connecting to " + settings.ssid);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {  // Try for about 20 seconds
     delay(1000);
     Serial.print(".");
+    attempts++;
   }
-  addToSerialBuffer("Connected to ssid " + String(settings.ssid));
-  addToSerialBuffer("Use this URL to connect: http://" + WiFi.localIP().toString() + " or " + ap_local_ip);
-  addToSerialBuffer("Gateway: " + WiFi.gatewayIP().toString());
-  addToSerialBuffer("Subnet mask: " + WiFi.subnetMask().toString());
-  delay(1000);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    if (settings.useStaticIP) {
+      addToSerialBuffer("Failed to connect with static IP. Trying dynamic IP.");
+      settings.useStaticIP = false;
+      WiFi.disconnect();
+      delay(1000);
+      WiFi.begin(settings.ssid.c_str(), settings.password.c_str());
+      attempts = 0;
+      while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        delay(1000);
+        Serial.print(".");
+        attempts++;
+      }
+    }
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    addToSerialBuffer("Connected to SSID: " + String(settings.ssid));
+    addToSerialBuffer("IP Address: " + WiFi.localIP().toString());
+    addToSerialBuffer("Gateway: " + WiFi.gatewayIP().toString());
+    addToSerialBuffer("Subnet mask: " + WiFi.subnetMask().toString());
+  } else {
+    addToSerialBuffer("Failed to connect to WiFi. Please check your settings.");
+  }
+
   // Initialize and sync NTP Client
   timeClient.begin();
   timeClient.setTimeOffset(25200); // Set time zone offset to GMT+7 (25200 seconds)
