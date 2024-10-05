@@ -32,8 +32,8 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
 // ESP32 Access Point credentials
-const char *ap_ssid = "weather_station";    // SSID for the AP
-const char *ap_password = "research"; // Password for the AP
+const char *ap_ssid = "weather_station"; // SSID for the AP
+const char *ap_password = "research";    // Password for the AP
 
 // Static IP settings for the ESP32 AP
 IPAddress ap_local_ip(192, 168, 8, 1);
@@ -118,11 +118,12 @@ void addToSerialBuffer(const String &message)
   serialBufferIndex = (serialBufferIndex + 1) % SERIAL_BUFFER_SIZE;
 }
 
-struct Settings {
+struct Settings
+{
   String ssid;
   String password;
   int id;
-  bool useStaticIP;  // New field to determine if static IP should be used
+  bool useStaticIP; // New field to determine if static IP should be used
   IPAddress staticIP;
   IPAddress gateway;
   IPAddress subnet;
@@ -142,29 +143,35 @@ void resetWatchdog()
   }
 }
 
-void loadSettings() {
+void loadSettings()
+{
   addToSerialBuffer("Starting to load settings...");
-  if (SD.exists("/settings.json")) {
+  if (SD.exists("/settings.json"))
+  {
     addToSerialBuffer("Settings file found. Attempting to read...");
     File file = SD.open("/settings.json", FILE_READ);
-    if (file) {
+    if (file)
+    {
       addToSerialBuffer("Settings file opened successfully.");
       DynamicJsonDocument doc(1024);
       DeserializationError error = deserializeJson(doc, file);
-      if (error) {
+      if (error)
+      {
         addToSerialBuffer("Failed to read settings file: " + String(error.c_str()));
-      } else {
+      }
+      else
+      {
         addToSerialBuffer("Settings file parsed successfully. Loading values...");
         settings.ssid = doc["ssid"].as<String>();
         settings.password = doc["password"].as<String>();
         settings.id = doc["id"].as<int>();
-        settings.useStaticIP = doc["useStaticIP"] | true;  // Default to true if not present
+        settings.useStaticIP = doc["useStaticIP"] | true; // Default to true if not present
         settings.staticIP.fromString(doc["staticIP"].as<String>());
         settings.gateway.fromString(doc["gateway"].as<String>());
         settings.subnet.fromString(doc["subnet"].as<String>());
         settings.dnsServer.fromString(doc["dnsServer"].as<String>());
         settings.postUrl = doc["postUrl"].as<String>();
-        
+
         addToSerialBuffer("All settings loaded:");
         addToSerialBuffer("SSID: " + settings.ssid);
         addToSerialBuffer("Password: " + settings.password);
@@ -178,22 +185,26 @@ void loadSettings() {
       }
       file.close();
       addToSerialBuffer("Settings file closed.");
-    } else {
+    }
+    else
+    {
       addToSerialBuffer("Failed to open settings file.");
     }
-  } else {
+  }
+  else
+  {
     addToSerialBuffer("Settings file not found. Loading default settings...");
     // Default settings
     settings.ssid = "SRS";
     settings.password = "SRS@2023";
     settings.id = 1;
-    settings.useStaticIP = true;  // Default to static IP
+    settings.useStaticIP = true; // Default to static IP
     settings.staticIP.fromString("10.9.116.174");
     settings.gateway.fromString("10.9.116.1");
     settings.subnet.fromString("255.255.255.0");
     settings.dnsServer.fromString("192.168.1.22");
     settings.postUrl = "http://srs-ssms.com/iot/post-aws-to-api.php";
-    
+
     addToSerialBuffer("Default settings loaded. Printing all settings:");
     addToSerialBuffer("SSID: " + settings.ssid);
     addToSerialBuffer("Password: " + settings.password);
@@ -204,16 +215,18 @@ void loadSettings() {
     addToSerialBuffer("Subnet: " + settings.subnet.toString());
     addToSerialBuffer("DNS Server: " + settings.dnsServer.toString());
     addToSerialBuffer("Post URL: " + settings.postUrl);
-    
+
     saveSettings();
     addToSerialBuffer("Default settings saved to file.");
   }
   addToSerialBuffer("Settings loading process completed.");
 }
 
-void saveSettings() {
+void saveSettings()
+{
   File file = SD.open("/settings.json", FILE_WRITE);
-  if (file) {
+  if (file)
+  {
     DynamicJsonDocument doc(1024);
     doc["ssid"] = settings.ssid;
     doc["password"] = settings.password;
@@ -224,16 +237,20 @@ void saveSettings() {
     doc["subnet"] = settings.subnet.toString();
     doc["dnsServer"] = settings.dnsServer.toString();
     doc["postUrl"] = settings.postUrl;
-    if (serializeJson(doc, file) == 0) {
+    if (serializeJson(doc, file) == 0)
+    {
       addToSerialBuffer("Failed to write settings file");
     }
     file.close();
-  } else {
+  }
+  else
+  {
     addToSerialBuffer("Failed to open settings file for writing");
   }
 }
 
-void handleRoot() {
+void handleRoot()
+{
   String html = "<html><head>";
   html += "<style>";
   html += "table { border-collapse: collapse; width: 100%; }";
@@ -269,7 +286,8 @@ void handleRoot() {
   html += "<table>";
   html += "<tr><th>File Name</th><th>Actions</th></tr>";
   File root = SD.open("/");
-  while (File file = root.openNextFile()) {
+  while (File file = root.openNextFile())
+  {
     String fileName = String(file.name());
     html += "<tr><td>" + fileName + "</td><td>";
     html += "<a href='/download?file=" + fileName + "' class='download'>DOWNLOAD</a> | ";
@@ -325,7 +343,8 @@ void handleDownload()
   server.send(404, "text/plain", "File not found");
 }
 
-void handleSaveSettings() {
+void handleSaveSettings()
+{
   String newSSID = server.arg("ssid");
   String newPassword = server.arg("password");
   bool networkChanged = (newSSID != settings.ssid) || (newPassword != settings.password);
@@ -341,11 +360,14 @@ void handleSaveSettings() {
   settings.postUrl = server.arg("postUrl");
   saveSettings();
 
-  if (networkChanged || settings.useStaticIP != server.hasArg("useStaticIP")) {
+  if (networkChanged || settings.useStaticIP != server.hasArg("useStaticIP"))
+  {
     server.send(200, "text/html", "<html><body><h1>Settings Saved</h1><p>Reconnecting to network...</p><script>setTimeout(function(){ window.location.href = '/'; }, 10000);</script></body></html>");
-    delay(1000);  // Give the server time to send the response
+    delay(1000); // Give the server time to send the response
     ESP.restart();
-  } else {
+  }
+  else
+  {
     server.sendHeader("Location", "/");
     server.send(303);
   }
@@ -369,7 +391,8 @@ void handlePost()
 {
   if (server.method() == HTTP_POST)
   {
-    String dateutc, baromabsin, windgustmph, baromrelin, date_jkt, solarradiation, windgustkmh, windspeedkmh, windspeedmph, winddir, rainratein, tempf, tempinf, humidityin, uv, humidity, dateStr = "";
+    String dateutc, baromabsin, windgustmph, baromrelin, date_jkt, solarradiation, windgustkmh, windspeedkmh, windspeedmph, winddir, rainratein, tempf, tempinf, humidityin, uv, humidity;
+    String dailyrainin, raintodayin, totalrainin, weeklyrainin, monthlyrainin, yearlyrainin, maxdailygust, wh65batt;
     float temp_in, temp_out = 0;
     DateTime datetimeNow, datetimePlus;
 
@@ -448,9 +471,19 @@ void handlePost()
     baromrelin = server.arg("baromrelin");
     baromabsin = server.arg("baromabsin");
 
-    String data = new_date_string + "," + windspeedkmh + "," + winddir + "," + rainratein + "," + temp_in + "," + temp_out + "," + humidityin + "," + humidity + "," + uv + "," + windgustmph + "," + baromrelin + "," + baromabsin + "," + solarradiation;
+    // New parameters
+    dailyrainin = server.arg("dailyrainin");
+    raintodayin = server.arg("raintodayin");
+    totalrainin = server.arg("totalrainin");
+    weeklyrainin = server.arg("weeklyrainin");
+    monthlyrainin = server.arg("monthlyrainin");
+    yearlyrainin = server.arg("yearlyrainin");
+    maxdailygust = server.arg("maxdailygust");
+    wh65batt = server.arg("wh65batt");
 
-    addToSerialBuffer("SAVED DATA: "+ data);
+    String data = new_date_string + "," + windspeedkmh + "," + winddir + "," + rainratein + "," + temp_in + "," + temp_out + "," + humidityin + "," + humidity + "," + uv + "," + windgustmph + "," + baromrelin + "," + baromabsin + "," + solarradiation + "," + dailyrainin + "," + raintodayin + "," + totalrainin + "," + weeklyrainin + "," + monthlyrainin + "," + yearlyrainin + "," + maxdailygust + "," + wh65batt;
+
+    addToSerialBuffer("SAVED DATA: " + data);
 
     if (data != "")
     {
@@ -508,7 +541,7 @@ void setup()
   server.on("/serial", handleSerial);
   server.on("/download", handleDownload);
   server.on("/delete", handleDelete);
-  server.on("/restart", handleRestart);  // Add this line
+  server.on("/restart", handleRestart); // Add this line
 
   server.begin();
   addToSerialBuffer("Server started");
@@ -523,12 +556,14 @@ void setup()
 
 String constructJsonData(const String values[], int size)
 {
-  DynamicJsonDocument doc(1024);
+  DynamicJsonDocument doc(1536); // Increased size to accommodate new parameters
   doc["idws"] = settings.id;
 
   const char *keys[] = {"date", "windspeedkmh", "winddir", "rain_rate", "temp_in", "temp_out",
                         "hum_in", "hum_out", "uv", "wind_gust", "air_press_rel",
-                        "air_press_abs", "solar_radiation"};
+                        "air_press_abs", "solar_radiation", "dailyrainin", "raintodayin",
+                        "totalrainin", "weeklyrainin", "monthlyrainin", "yearlyrainin",
+                        "maxdailygust", "wh65batt"};
 
   for (int i = 0; i < size; i++)
   {
@@ -590,9 +625,9 @@ void sendData()
 
     if (rawText != "")
     {
-      String values[13];
+      String values[21]; // Increased array size to accommodate new parameters
       int index = 0;
-      while (rawText.length() > 0 && index < 13)
+      while (rawText.length() > 0 && index < 21)
       {
         int separatorIndex = rawText.indexOf(",");
         if (separatorIndex == -1)
@@ -609,7 +644,7 @@ void sendData()
       }
 
       // Fill remaining values with empty strings if necessary
-      while (index < 13)
+      while (index < 21)
       {
         values[index++] = "NULL";
       }
@@ -624,7 +659,7 @@ void sendData()
       WiFiClient client;
       HTTPClient http;
 
-      String data = constructJsonData(values, 13);
+      String data = constructJsonData(values, 21);
 
       addToSerialBuffer("Attempting to send data: " + data);
       http.begin(client, settings.postUrl); // Use the new postUrl from settings
@@ -664,9 +699,12 @@ void sendData()
   addToSerialBuffer(String(testLoop));
 }
 
-void connectWiFi() {
-  if (settings.useStaticIP) {
-    if (!WiFi.config(settings.staticIP, settings.gateway, settings.subnet, settings.dnsServer)) {
+void connectWiFi()
+{
+  if (settings.useStaticIP)
+  {
+    if (!WiFi.config(settings.staticIP, settings.gateway, settings.subnet, settings.dnsServer))
+    {
       addToSerialBuffer("Failed to configure static IP. Falling back to dynamic IP.");
       settings.useStaticIP = false;
     }
@@ -676,22 +714,25 @@ void connectWiFi() {
   addToSerialBuffer("Connecting to " + settings.ssid);
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {  // Try for about 20 seconds
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  { // Try for about 20 seconds
     delay(1000);
     Serial.print(".");
     attempts++;
   }
-  
 
-  if (WiFi.status() != WL_CONNECTED) {
-    if (settings.useStaticIP) {
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    if (settings.useStaticIP)
+    {
       addToSerialBuffer("Failed to connect with static IP. Trying dynamic IP.");
       settings.useStaticIP = false;
       WiFi.disconnect();
       delay(1000);
       WiFi.begin(settings.ssid.c_str(), settings.password.c_str());
       attempts = 0;
-      while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      while (WiFi.status() != WL_CONNECTED && attempts < 20)
+      {
         delay(1000);
         Serial.print(".");
         attempts++;
@@ -699,12 +740,15 @@ void connectWiFi() {
     }
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED)
+  {
     addToSerialBuffer("Connected to SSID: " + String(settings.ssid));
     addToSerialBuffer("IP Address: " + WiFi.localIP().toString());
     addToSerialBuffer("Gateway: " + WiFi.gatewayIP().toString());
     addToSerialBuffer("Subnet mask: " + WiFi.subnetMask().toString());
-  } else {
+  }
+  else
+  {
     addToSerialBuffer("Failed to connect to WiFi. Please check your settings.");
   }
 
@@ -715,12 +759,12 @@ void connectWiFi() {
   addToSerialBuffer("Time synchronized with NTP server");
 }
 
-void handleRestart() {
+void handleRestart()
+{
   server.send(200, "text/html", "<html><body><h1>Restarting ESP32...</h1><script>setTimeout(function(){ window.location.href = '/'; }, 10000);</script></body></html>");
-  delay(1000);  // Give the server time to send the response
+  delay(1000); // Give the server time to send the response
   ESP.restart();
-} 
-
+}
 
 void deleteTopLine()
 {
