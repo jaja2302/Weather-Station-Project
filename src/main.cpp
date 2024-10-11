@@ -67,6 +67,7 @@ unsigned long getTime();
 void setInternalClock();
 String getFormattedTimestamp();
 void handleRestart();
+String formatMacAddress(const unsigned char* mac);
 
 int watchdogTimer = 11;
 int delayMill = 3000;
@@ -119,6 +120,7 @@ void addToSerialBuffer(const String &message)
   serialBufferIndex = (serialBufferIndex + 1) % SERIAL_BUFFER_SIZE;
 }
 
+// Updated function to get connected devices with more details
 String getConnectedDevices() {
   String deviceList = "";
   wifi_sta_list_t stationList;
@@ -128,11 +130,27 @@ String getConnectedDevices() {
 
   for (int i = 0; i < adapterList.num; i++) {
     tcpip_adapter_sta_info_t station = adapterList.sta[i];
-    deviceList += "Device " + String(i+1) + ": ";
-    deviceList += IPAddress(station.ip.addr).toString();
+    deviceList += "Device " + String(i+1) + ":<br>";
+    deviceList += "- IP: " + IPAddress(station.ip.addr).toString() + "<br>";
+    deviceList += "- MAC: " + formatMacAddress(station.mac) + "<br>";
+    
+    // Try to get the device name (this may not always work)
+    char hostname[32] = {0}; // Buffer to store hostname
+    if (tcpip_adapter_get_hostname(TCPIP_ADAPTER_IF_AP, (const char**)&hostname) == ESP_OK && hostname[0] != '\0') {
+      deviceList += "- Name: " + String(hostname) + "<br>";
+    } else {
+      deviceList += "- Name: Unknown<br>";
+    }
     deviceList += "<br>";
   }
   return deviceList;
+}
+
+String formatMacAddress(const unsigned char* mac) {
+  char buf[20];
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(buf);
 }
 
 struct Settings
@@ -314,7 +332,7 @@ void handleRoot()
   }
   html += "</table>";
 
-    // Add connected devices information
+  // Add connected devices information
   html += "<h2>Connected Devices</h2>";
   html += "<p>Number of connected devices: " + String(WiFi.softAPgetStationNum()) + "</p>";
   html += "<p>" + getConnectedDevices() + "</p>";
