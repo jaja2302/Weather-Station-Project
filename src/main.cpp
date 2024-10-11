@@ -26,6 +26,7 @@ const int relayPin = 13;
 #include <SD.h>
 #include <RTClib.h>
 #include <Timer.h>
+#include <esp_wifi.h>
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -116,6 +117,22 @@ void addToSerialBuffer(const String &message)
   Serial.println(timestampedMessage); // Print to actual serial for debugging
   serialBuffer[serialBufferIndex] = timestampedMessage;
   serialBufferIndex = (serialBufferIndex + 1) % SERIAL_BUFFER_SIZE;
+}
+
+String getConnectedDevices() {
+  String deviceList = "";
+  wifi_sta_list_t stationList;
+  tcpip_adapter_sta_list_t adapterList;
+  esp_wifi_ap_get_sta_list(&stationList);
+  tcpip_adapter_get_sta_list(&stationList, &adapterList);
+
+  for (int i = 0; i < adapterList.num; i++) {
+    tcpip_adapter_sta_info_t station = adapterList.sta[i];
+    deviceList += "Device " + String(i+1) + ": ";
+    deviceList += IPAddress(station.ip.addr).toString();
+    deviceList += "<br>";
+  }
+  return deviceList;
 }
 
 struct Settings
@@ -296,6 +313,11 @@ void handleRoot()
     file.close();
   }
   html += "</table>";
+
+    // Add connected devices information
+  html += "<h2>Connected Devices</h2>";
+  html += "<p>Number of connected devices: " + String(WiFi.softAPgetStationNum()) + "</p>";
+  html += "<p>" + getConnectedDevices() + "</p>";
 
   html += "<h2>Serial Monitor</h2>";
   html += "<pre id='serial'></pre>";
