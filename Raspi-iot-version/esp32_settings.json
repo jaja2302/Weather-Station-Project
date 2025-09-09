@@ -1,0 +1,11 @@
+{
+    "ssid": "YOUR_WIFI_SSID",
+    "password": "YOUR_WIFI_PASSWORD",
+    "id": 1,
+    "useStaticIP": false,
+    "staticIP": "192.168.1.100",
+    "gateway": "192.168.1.1",
+    "subnet": "255.255.255.0",
+    "dnsServer": "8.8.8.8",
+    "postUrl": "http://YOUR_PI_IP:5000/post"
+}
