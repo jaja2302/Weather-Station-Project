@@ -232,28 +232,11 @@
         <table>
             <tr>
                 <th>File Name</th>
-                <th>Size</th>
-                <th>Last Modified</th>
                 <th>Actions</th>
             </tr>
             {% for file in files %}
             <tr>
                 <td>{{ file }}</td>
-                <td>
-                    {% set file_path = 'data/' + file %}
-                    {% if file_path|file_exists %}
-                        {{ (file_path|file_size / 1024)|round(2) }} KB
-                    {% else %}
-                        Unknown
-                    {% endif %}
-                </td>
-                <td>
-                    {% if file_path|file_exists %}
-                        {{ file_path|file_mtime|datetime }}
-                    {% else %}
-                        Unknown
-                    {% endif %}
-                </td>
                 <td>
                     <a href="/download?file={{ file }}" class="download">📥 DOWNLOAD</a> | 
                     <a href="/delete?file={{ file }}" class="delete" onclick="return confirm('Are you sure you want to delete this file?')">🗑️ DELETE</a>
@@ -269,7 +252,7 @@
         <!-- Recent Data Table -->
         <h2>Recent Weather Data</h2>
         <table>
-            <tr>
+            <tr>aja
                 <th>Date/Time</th>
                 <th>Wind Speed (km/h)</th>
                 <th>Wind Dir</th>

@@ -1,21 +1,191 @@
 # Weather Station Setup Guide - Raspberry Pi
 
+## Prerequisites
+
+- Raspberry Pi (3B+ or newer recommended)
+- MicroSD card (16GB+ recommended)
+- Internet connection
+- SSH access to Raspberry Pi
+
 ## Quick Start
 
-### 1. Install on Raspberry Pi
+### 1. Copy Files to Raspberry Pi
+
+**Option A: Using SCP (from Windows/Linux/Mac)**
+```bash
+# Copy the entire Raspi-iot-version folder to Raspberry Pi
+scp -r Raspi-iot-version/ pi@YOUR_PI_IP:/home/pi/weather-station
+```
+
+**Option B: Using Git (if you have git repository)**
+```bash
+# SSH to Raspberry Pi first
+ssh pi@YOUR_PI_IP
+
+# Clone or download the project
+git clone YOUR_REPO_URL /home/pi/weather-station
+# OR download and extract the zip file
+```
+
+**Option C: Manual Copy**
+```bash
+# Use file manager or USB drive to copy files
+# Then SSH to Raspberry Pi and move files to /home/pi/weather-station
+```
+
+### 2. SSH to Raspberry Pi
 
 ```bash
-# Clone or copy the Raspi-iot-version folder to your Raspberry Pi
+ssh pi@YOUR_PI_IP
+```
+
+### 3. Install Weather Station
+
+```bash
+# Navigate to project directory
 cd /home/pi/weather-station
 
 # Make scripts executable
-chmod +x install.sh run.sh test_weather_data.py
+chmod +x install.sh run.sh test_weather_data.py start_demo.py
 
-# Run installation
+# Run installation script
 ./install.sh
 ```
 
-### 2. Start the Service
+### 4. Start the Service
+
+```bash
+# Start the weather station service
+sudo systemctl start weather_station.service
+
+# Check if it's running
+sudo systemctl status weather_station.service
+
+# Enable auto-start on boot
+sudo systemctl enable weather_station.service
+
+# View logs
+journalctl -u weather_station.service -f
+```
+
+### 5. Access Web Interface
+
+Open your browser and go to: `http://YOUR_PI_IP:5000`
+
+## Testing the Installation
+
+### 1. Test Web Interface
+
+```bash
+# Test local connection
+curl http://localhost:5000
+
+# Test from another machine
+curl http://YOUR_PI_IP:5000
+```
+
+### 2. Test API Endpoints
+
+```bash
+# Test with sample data
+python3 test_weather_data.py
+
+# Test continuous data
+python3 test_weather_data.py continuous 30
+
+# Test JSON API
+python3 test_weather_data.py json
+```
+
+### 3. Check Service Status
+
+```bash
+# Check if service is running
+sudo systemctl status weather_station.service
+
+# Check if port is listening
+sudo netstat -tlnp | grep :5000
+
+# Check logs
+journalctl -u weather_station.service -f
+```
+
+## ESP32 Integration
+
+### 1. Update ESP32 Settings
+
+Copy the `esp32_settings.json` file to your ESP32's microSD card as `settings.json` and update:
+
+```json
+{
+  "ssid": "YOUR_WIFI_SSID",
+  "password": "YOUR_WIFI_PASSWORD", 
+  "id": 1,
+  "postUrl": "http://YOUR_PI_IP:5000/post"
+}
+```
+
+### 2. Test ESP32 Connection
+
+```bash
+# Monitor logs to see incoming data
+journalctl -u weather_station.service -f
+
+# Check database for new data
+sqlite3 data/weather.db "SELECT COUNT(*) FROM weather_data;"
+```
+
+## Quick Commands Reference
+
+### Service Management
+```bash
+# Start service
+sudo systemctl start weather_station.service
+
+# Stop service
+sudo systemctl stop weather_station.service
+
+# Restart service
+sudo systemctl restart weather_station.service
+
+# Check status
+sudo systemctl status weather_station.service
+
+# Enable auto-start
+sudo systemctl enable weather_station.service
+
+# Disable auto-start
+sudo systemctl disable weather_station.service
+```
+
+### Log Management
+```bash
+# View logs
+journalctl -u weather_station.service -f
+
+# View last 100 lines
+journalctl -u weather_station.service -n 100
+
+# View logs from today
+journalctl -u weather_station.service --since today
+```
+
+### Database Management
+```bash
+# Check database
+sqlite3 data/weather.db ".tables"
+
+# Count records
+sqlite3 data/weather.db "SELECT COUNT(*) FROM weather_data;"
+
+# View recent data
+sqlite3 data/weather.db "SELECT * FROM weather_data ORDER BY created_at DESC LIMIT 10;"
+
+# Export to CSV
+sqlite3 -header -csv data/weather.db "SELECT * FROM weather_data;" > export.csv
+```
+
+## Manual Setup (Alternative)
 
 ```bash
 # Start the weather station service
