@@ -69,6 +69,10 @@ def add_to_serial_buffer(message):
     timestamped_message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}"
     logger.info(timestamped_message)
     
+    # Initialize buffer if not already done
+    if not config.serial_buffer:
+        config.serial_buffer = [""] * config.serial_buffer_size
+    
     config.serial_buffer[config.serial_buffer_index] = timestamped_message
     config.serial_buffer_index = (config.serial_buffer_index + 1) % config.serial_buffer_size
 
