@@ -1,11 +1,11 @@
 {
-    "ssid": "YOUR_WIFI_SSID",
-    "password": "YOUR_WIFI_PASSWORD",
-    "id": 1,
+    "ssid": "android",
+    "password": "korewako",
+    "id": 44,
     "useStaticIP": false,
-    "staticIP": "192.168.1.100",
-    "gateway": "192.168.1.1",
+    "staticIP": "10.9.116.174",
+    "gateway": "10.9.116.1",
     "subnet": "255.255.255.0",
-    "dnsServer": "8.8.8.8",
-    "postUrl": "http://YOUR_PI_IP:5000/post"
+    "dnsServer": "192.168.1.22",
+    "postUrl": "http://srs-ssms.com/iot/post-aws-to-api.php"
 }
